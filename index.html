@@ -1,29 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <title>Mock Housing Portal</title>
-    <link rel="stylesheet" href="style.css">
-  </head>
-  <body>
-    <h1>Housing Portal</h1>
-    <div id="error"></div>
-
-    <div class="layout">
-      <div class="col">
-        <h2>Room Types</h2>
-        <div id="room-types"></div>
-      </div>
-
-      <div class="col">
-        <h2>My Housing</h2>
-        <div id="my-housing"></div>
-
-        <h2>Announcements</h2>
-        <div id="announcements"></div>
-      </div>
-    </div>
-
-    <script src="script.js"></script>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mock Housing Portal</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-active="index.html">
+  <header id="site-header"></header>
+  <main id="app" class="site-shell page"><p class="loading">Loading…</p></main>
+  <script src="services/portal.js"></script>
+  <script src="pages/js/home.js"></script>
+</body>
 </html>
