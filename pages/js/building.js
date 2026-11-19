@@ -2,7 +2,7 @@
    (was building_page / render_building_detail / render_room_card).
    URL: building.html?id=<building_id> */
 (function () {
-  const { h, apiGet, apiPost, hasData, iconBtn, btn, go, notify, formatRoomType } = Portal;
+  const { h, apiGet, apiPost, hasData, iconBtn, btn, dialog, go, notify, formatRoomType } = Portal;
   const app = document.getElementById("app");
   const buildingId = new URLSearchParams(location.search).get("id");
 
@@ -12,12 +12,41 @@
     apartment: "Apartments",
   };
 
-  async function selectRoom(building, room) {
+  async function saveRoomSelection(building, room) {
     const body = { building_id: building.id, style: room.style, room_type: room.room_type };
     if (await apiPost("/housing/select", body)) {
       notify("Room type selected", "positive");
       render();
     }
+  }
+
+  function confirmReplacement(building, room, current) {
+    let confirmation;
+    const replaceButton = btn("Replace selection", {
+      onClick: async () => {
+        replaceButton.disabled = true;
+        confirmation.close();
+        await saveRoomSelection(building, room);
+        confirmation.remove();
+      },
+    });
+    confirmation = dialog(
+      h("h2", { class: "text-xl", text: "Replace current room selection?" }),
+      h("p", { text: `Current selection: ${current.building_name} - ${formatRoomType(current.room_type)}` }),
+      h("p", { text: `New selection: ${building.name} - ${formatRoomType(room.room_type)}` }),
+      h("p", { class: "muted", text: "Choosing a new room will replace your current selection. Your booking is not confirmed until you select Continue and confirm it." }),
+      h("div", { class: "row row--end" },
+        btn("Keep current room", { variant: "flat", onClick: () => { confirmation.close(); confirmation.remove(); } }),
+        replaceButton));
+    confirmation.open();
+  }
+
+  function selectRoom(building, room, current) {
+    if (hasData(current)) {
+      confirmReplacement(building, room, current);
+      return;
+    }
+    saveRoomSelection(building, room);
   }
 
   function roomCard(building, room, myHousing) {
@@ -31,7 +60,7 @@
       h("p", { text: `${room.count} room${room.count !== 1 ? "s" : ""}` }),
       isSelected
         ? btn("Selected", { icon: "check", disabled: true })
-        : btn("Select", { onClick: () => selectRoom(building, room) }));
+        : btn(hasData(myHousing) ? "Replace selection" : "Select", { onClick: () => selectRoom(building, room, myHousing) }));
   }
 
   async function render() {
