@@ -171,15 +171,18 @@ details.expansion { width: 100%; border: 1px solid var(--border); border-radius:
 details.expansion > summary { padding: 12px 16px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 details.expansion > .expansion-body { padding: 8px 16px 16px; }
 
-/* ---------- Toasts ---------- */
-#toasts { position: fixed; z-index: 1000; left: 50%; bottom: 20px; transform: translateX(-50%);
-  display: flex; flex-direction: column; gap: 8px; align-items: center; width: min(560px, calc(100vw - 24px)); pointer-events: none; }
-.toast { pointer-events: auto; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 6px;
-  color: #fff; background: #323f4f; box-shadow: 0 4px 14px rgba(0,0,0,.25); max-width: 100%; }
-.toast--positive { background: var(--positive); }
-.toast--negative { background: var(--negative); }
-.toast--warning { background: #e0a800; color: #1f1500; }
-.toast button { background: none; border: 0; color: inherit; font-size: 1.25rem; cursor: pointer; padding: 0 4px; }
+/* ---------- Persistent action status ---------- */
+#action-status { width: 100%; }
+.action-status__label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px;
+  width: 100%; padding: 12px 16px; border: 1px solid; border-radius: 8px; }
+.action-status__label--positive { background: #eaf7ee; color: #145c2d; border-color: #8dcc9f; }
+.action-status__label--negative { background: #fff3f0; color: #922b1c; border-color: #edc1b7; }
+.action-status__label--warning { background: #fff8e5; color: #6b4300; border-color: #e6c56b; }
+.action-status__label--info { background: var(--primary-soft); color: #17324d; border-color: #aebfda; }
+.action-status__heading { flex: none; }
+.action-status__message { flex: 1 1 240px; }
+.action-status__dismiss { margin-left: auto; padding: 4px 8px; border: 1px solid currentColor; border-radius: 4px;
+  background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
 
 /* ---------- Misc ---------- */
 a:focus-visible, button:focus-visible, summary:focus-visible, .tab:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }

@@ -74,20 +74,25 @@
   function reload() { window.location.reload(); }
 
   /* ------------------------------------------------------------------ *
-   * Notifications  (replaces ui.notify)   type: positive|negative|warning|info
+   * Persistent action status   type: positive|negative|warning|info
    * ------------------------------------------------------------------ */
   function notify(message, type = "info", opts = {}) {
-    let host = document.getElementById("toasts");
-    if (!host) {
-      host = h("div", { id: "toasts", "aria-live": "polite" });
-      document.body.append(host);
+    let statusHost = document.getElementById("action-status");
+    if (!statusHost) {
+      statusHost = h("div", { id: "action-status", "aria-live": "polite", "aria-atomic": "true" });
+      const app = document.getElementById("app");
+      if (app) app.prepend(statusHost);
+      else document.body.prepend(statusHost);
     }
-    const toast = h("div", { class: "toast toast--" + type, role: type === "negative" ? "alert" : "status" }, h("span", { text: message }));
-    const remove = () => toast.remove();
-    const sticky = opts.closeButton || type === "negative";
-    if (sticky) toast.append(h("button", { type: "button", "aria-label": "Dismiss", onclick: remove, text: "×" }));
-    host.append(toast);
-    setTimeout(remove, sticky ? 8000 : 3000);
+    const status = h("div", {
+      class: "action-status__label action-status__label--" + type,
+      role: type === "negative" ? "alert" : "status",
+    },
+      h("strong", { class: "action-status__heading", text: type === "negative" ? "Action needed" : "Status" }),
+      h("span", { class: "action-status__message", text: message }),
+      h("button", { type: "button", class: "action-status__dismiss", "aria-label": "Dismiss status", onclick: () => statusHost.replaceChildren(), text: "Dismiss" }));
+    statusHost.replaceChildren(status);
+    return;
   }
 
   /* ------------------------------------------------------------------ *
@@ -133,12 +138,12 @@
     return result;
   }
 
-  /** GET that toasts on failure and returns [] (same as the old api_get). */
+  /** GET that publishes a persistent status on failure and returns [] (same as the old api_get). */
   async function apiGet(path) {
     try { return await request("GET", path); }
     catch (error) { notify(error.message, "negative"); return []; }
   }
-  /** POST that toasts on failure and returns true/false (same as the old api_post). */
+  /** POST that publishes a persistent status on failure and returns true/false (same as the old api_post). */
   async function apiPost(path, json) {
     try { await request("POST", path, json); return true; }
     catch (error) { notify(error.message, "negative"); return false; }
