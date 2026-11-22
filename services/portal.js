@@ -305,6 +305,7 @@
   const NAV_LEFT = [
     ["Home", "/index.html"],
     ["Housing Applications", "/pages/housing-applications.html"],
+    ["Maintenance", "/pages/maintenance.html"],
     ["Meal Plans", "/pages/meal-plans.html"],
     ["Become an RA", "/pages/become-an-ra.html"],
   ];
