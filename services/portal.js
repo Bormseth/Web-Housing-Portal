@@ -314,15 +314,18 @@
     ["Log out", "/index.html"],
   ];
 
-  function renderHeader() {
+function renderHeader() {
     const host = document.getElementById("site-header");
     if (!host) return;
     const active = document.body.dataset.active || "";
     const link = ([label, href]) => h("a", { href, "aria-current": href === active ? "page" : null, text: label });
 
     const logo = h("img", {
-      class: "brand-logo", src: "/assets/UNH-CREST.png", alt: "University of New Hampshire",
-      onerror: (e) => e.target.replaceWith(h("span", { class: "text-2xl bold", text: "UNH Housing Portal" })),
+      class: "brand-logo", 
+      src: "/assets/UNH-CREST.png", 
+      alt: "University of New Hampshire",
+      style: "height: 70px; width: auto;", 
+      onerror: (e) => e.target.replaceWith(h("span", { class: "text-xl bold", text: "UNH Housing Portal" })),
     });
     host.className = "site-shell";
     host.append(
@@ -333,7 +336,6 @@
   }
 
   document.addEventListener("DOMContentLoaded", renderHeader);
-  // Material Icons font (used by btn()/icon()). Remove if you switch icon sets.
   if (!document.querySelector('link[data-portal-icons]')) {
     document.head.append(h("link", { rel: "stylesheet", href: "https://fonts.googleapis.com/icon?family=Material+Icons", "data-portal-icons": "" }));
   }
