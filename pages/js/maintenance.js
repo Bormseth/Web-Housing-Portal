@@ -60,94 +60,141 @@
    * Add-request dialog
    * ---------------------------------------------------------------- */
   function openAddRequest() {
-    const dlg = h("dialog", { class: "dialog dialog--wide", "aria-labelledby": "add-request-title" });
+    // 1. Create the dialog element with a wider forced width
+    const dlg = document.createElement("dialog");
+    dlg.setAttribute("aria-labelledby", "add-request-title");
+    dlg.style.cssText = "width: 90%; max-width: 900px; padding: 24px; border: none; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);";
     dlg.addEventListener("close", () => dlg.remove());
 
-    // --- Select a room ---
-    const categoryRadio = radioGroup("room_category", ["My Room", "Public Rooms"], formData.room_category, {
-      legend: "Room category",
-      onChange: (value) => { formData.room_category = value; },
-    });
-    const roomRows = TEST_ROOM_OPTIONS.map((room) => {
-      const radio = h("input", {
-        type: "radio", name: "selected_room", value: room.space, checked: formData.selected_room === room.space,
-        "aria-label": `Select ${room.space}`,
-        onchange: () => { formData.selected_room = room.space; notify(`Selected room space: ${room.space}`); },
-      });
-      return h("tr", {}, h("td", {}, radio), h("td", { text: room.description }), h("td", { text: room.space }), h("td", { text: room.type }));
-    });
-    const roomSection = h("section", { class: "card card--tint", "aria-labelledby": "room-heading" },
-      h("h3", { id: "room-heading", class: "text-xl bold", text: "Select a Room" }),
-      categoryRadio.el,
-      h("div", { class: "table-wrap" },
-        h("table", { class: "table" },
-          h("thead", {}, h("tr", {}, ["Select", "Room Description", "Room Space", "Room Type"].map((t) => h("th", { scope: "col", text: t })))),
-          h("tbody", {}, roomRows))));
+    // --- Room Section ---
+    const roomSection = document.createElement("section");
+    roomSection.style.cssText = "background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 16px;";
+    roomSection.innerHTML = `
+      <h3 id="room-heading" style="font-size: 1.25rem; font-weight: bold; margin-bottom: 12px;">Select a Room</h3>
+      <div style="display: flex; gap: 16px; margin-bottom: 12px;">
+        <label><input type="radio" name="room_category" value="My Room" checked> My Room</label>
+        <label><input type="radio" name="room_category" value="Public Rooms"> Public Rooms</label>
+      </div>
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 2px solid #e2e8f0;">
+              <th style="padding: 8px;">Select</th>
+              <th style="padding: 8px;">Room Description</th>
+              <th style="padding: 8px;">Room Space</th>
+              <th style="padding: 8px;">Room Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 8px;"><input type="radio" name="selected_room" value="Test 100" checked></td>
+              <td style="padding: 8px;">Test Room</td>
+              <td style="padding: 8px;">Test 100</td>
+              <td style="padding: 8px;">Double</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
 
-    // --- General ---
-    const category = select("Category", CATEGORIES, { value: formData.general_category });
-    category.input.addEventListener("change", () => { formData.general_category = category.input.value; });
-    const item = select("Item", ITEMS, { value: formData.item });
-    item.input.addEventListener("change", () => { formData.item = item.input.value; });
-    const description = textArea("Description:", { value: formData.description, rows: 5 });
-    description.input.addEventListener("input", () => { formData.description = description.input.value; });
-    const comments = textArea("Comments (e.g. phone number, requested time):", { value: formData.comments, rows: 5 });
-    comments.input.addEventListener("input", () => { formData.comments = comments.input.value; });
+    // --- General Section (Side-by-Side Layout via Flexbox) ---
+    const generalSection = document.createElement("section");
+    generalSection.style.cssText = "background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 16px;";
+    
+    // Row 1: Category & Item stacked on the left, Description on the right
+    const row1 = document.createElement("div");
+    row1.style.cssText = "display: flex; gap: 20px; margin-bottom: 16px; flex-wrap: wrap;";
+    
+    const leftCol1 = document.createElement("div");
+    leftCol1.style.cssText = "flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 12px;";
+    leftCol1.innerHTML = `
+      <label style="display: flex; flex-direction: column; font-size: 0.9rem; font-weight: 500;">
+        Category
+        <select id="maint-category" style="margin-top: 4px; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1;">
+          <option>Furniture</option><option>Plumbing</option><option>Electrical</option><option>HVAC</option>
+        </select>
+      </label>
+      <label style="display: flex; flex-direction: column; font-size: 0.9rem; font-weight: 500;">
+        Item
+        <select id="maint-item" style="margin-top: 4px; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1;">
+          <option>(Please Select Item)</option><option>Desk Chair</option><option>Bed Frame</option><option>Bookshelf</option><option>Whiteboard</option>
+        </select>
+      </label>
+    `;
 
-    const generalSection = h("section", { class: "card card--tint", "aria-labelledby": "general-heading" },
-      h("h3", { id: "general-heading", class: "text-xl bold", text: "General" }),
-      h("div", { class: "form-cols" },
-        h("div", { class: "col" }, category.el, item.el),
-        description.el),
-      separator(),
-      h("div", { class: "form-cols form-cols--even" },
-        comments.el,
-        h("div", { class: "notice notice--info text-sm" },
-          "Per the Room & Board Agreement, staff may enter your space without you being present to complete maintenance. " +
-          "Staff will always knock, wait for a response, and announce themselves before entering a room. " +
-          "If you have any concerns, please include them, along with a phone number to reach you at, in the comments section above. " +
-          "Please note that we may not be able to accommodate requests for staff to come by at a specific day/time.")));
+    const rightCol1 = document.createElement("div");
+    rightCol1.style.cssText = "flex: 1; min-width: 250px; display: flex; flex-direction: column;";
+    rightCol1.innerHTML = `
+      <label style="display: flex; flex-direction: column; font-size: 0.9rem; font-weight: 500; height: 100%;">
+        Description:
+        <textarea id="maint-desc" rows="5" placeholder="Describe the issue you are having..." style="margin-top: 4px; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1; resize: vertical; flex-grow: 1;"></textarea>
+      </label>
+    `;
+    row1.append(leftCol1, rightCol1);
 
-    // --- Submit ---
-    async function handleSubmit() {
-      const reqType = formData.room_category === "My Room" ? "Private" : "Public";
-      const selectedSpace = formData.selected_room;
-      const matched = TEST_ROOM_OPTIONS.find((r) => r.space === selectedSpace) || {};
-      const desc = formData.description.trim();
-      const extra = formData.comments.trim();
-      const body = {
-        type: reqType,
-        item: formData.item,
-        room: selectedSpace || "Unspecified Room",
-        room_type: matched.type || "Standard",
-        status: "Pending",
-        description: extra ? `${desc}\nComments: ${extra}` : desc,
-      };
+    const hr = document.createElement("hr");
+    hr.style.cssText = "border: none; border-top: 1px solid #e2e8f0; margin: 16px 0;";
 
-      submitButton.disabled = true; // prevent double submits while the request is in flight
-      const ok = await apiPost("/add-maintenance-request", body);
-      submitButton.disabled = false;
-      if (ok) {
-        notify("Request Sent", "positive");
-        formData = defaults();
-        showRequests();
-        dlg.close();
-      } else {
-        notify("Failed to send request", "negative");
-      }
-    }
-    const submitButton = btn("Submit Request", { variant: "positive", onClick: handleSubmit });
+    const row2 = document.createElement("div");
+    row2.style.cssText = "display: flex; gap: 20px; flex-wrap: wrap;";
 
-    dlg.append(h("div", { class: "col", style: "gap:16px" },
-      h("h2", { id: "add-request-title", class: "sr-only", text: "Add maintenance request" }),
-      roomSection, generalSection,
-      h("div", { class: "row row--end" },
-        btn("Cancel", { variant: "flat", onClick: () => dlg.close() }),
-        submitButton)));
+    const leftCol2 = document.createElement("div");
+    leftCol2.style.cssText = "flex: 1; min-width: 250px; display: flex; flex-direction: column;";
+    leftCol2.innerHTML = `
+      <label style="display: flex; flex-direction: column; font-size: 0.9rem; font-weight: 500;">
+        Comments (e.g. phone number, requested time):
+        <textarea id="maint-comments" rows="4" placeholder="Any addition information we should know..." style="margin-top: 4px; padding: 8px; border-radius: 4px; border: 1px solid #cbd5e1; resize: vertical;"></textarea>
+      </label>
+    `;
+
+    const rightCol2 = document.createElement("div");
+    rightCol2.style.cssText = "flex: 1; min-width: 250px; background-color: #ecfdf5; border: 1px solid #10b981; color: #065f46; padding: 12px; border-radius: 6px; font-size: 0.85rem; line-height: 1.4; display: flex; align-items: center;";
+    rightCol2.innerHTML = `
+      <span>Per the Room & Board Agreement, staff may enter your space without you being present to complete maintenance. Staff will always knock, wait for a response, and announce themselves before entering a room.</span>
+    `;
+    row2.append(leftCol2, rightCol2);
+
+    generalSection.append(
+      document.createElement("h3"), // title placeholder or header text
+      row1, hr, row2
+    );
+    // Fix general header text
+    const genHeading = document.createElement("h3");
+    genHeading.textContent = "General";
+    genHeading.style.cssText = "font-size: 1.25rem; font-weight: bold; margin-bottom: 12px;";
+    generalSection.prepend(genHeading);
+
+    // --- Buttons Footer ---
+    const footerRow = document.createElement("div");
+    footerRow.style.cssText = "display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px;";
+    
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.type = "button";
+    cancelBtn.style.cssText = "padding: 8px 16px; background: transparent; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer;";
+    cancelBtn.onclick = () => dlg.close();
+
+    const submitBtn = document.createElement("button");
+    submitBtn.textContent = "Submit Request";
+    submitBtn.type = "button";
+    submitBtn.style.cssText = "padding: 8px 16px; background: #002D62; color: white; border: none; border-radius: 4px; cursor: pointer;";
+    submitBtn.onclick = async () => {
+      // Handle submit action here
+      dlg.close();
+    };
+
+    footerRow.append(cancelBtn, submitBtn);
+
+    // Assemble main dialog container
+    const dialogTitle = document.createElement("h2");
+    dialogTitle.textContent = "Add maintenance request";
+    dialogTitle.style.cssText = "font-size: 1.5rem; font-weight: bold; margin-bottom: 16px;";
+
+    dlg.append(dialogTitle, roomSection, generalSection, footerRow);
     document.body.append(dlg);
     dlg.showModal();
   }
-
+  
   /* ---------------------------------------------------------------- *
    * Page
    * ---------------------------------------------------------------- */

@@ -315,27 +315,58 @@
     ["Log out", "/index.html"],
   ];
 
-function renderHeader() {
+function skipToContent() {
+    const container = document.getElementById("app") || document.querySelector("main") || document.body;
+    const selector = [
+      'input:not([type="hidden"]):not([disabled])',
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      'button:not([disabled])',
+      "a[href]",
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(", ");
+
+    // Find the first tabbable element inside the main content that isn't hidden
+    const firstInput = [...container.querySelectorAll(selector)].find(
+      (el) => !el.closest("[hidden]") && el.offsetParent !== null
+    );
+
+    if (firstInput) {
+      firstInput.focus();
+    } else {
+      // Fallback for read-only pages with no inputs/buttons
+      if (!container.hasAttribute("tabindex")) container.setAttribute("tabindex", "-1");
+      container.focus();
+    }
+  }
+
+  function renderHeader() {
     const host = document.getElementById("site-header");
     if (!host) return;
     const active = document.body.dataset.active || "";
-    const link = ([label, href]) => h("a", { href, "aria-current": href === active ? "page" : null, text: label });
+    const isCurrent = (href) => active && (href === active || href.endsWith("/" + active));
+    const link = ([label, href]) =>
+      h("a", {
+        href,
+        "aria-current": isCurrent(href) ? "page" : null,
+        text: label,
+      });
 
-    const logo = h("img", {
-      class: "brand-logo", 
-      src: "/assets/UNH-CREST.png", 
-      alt: "University of New Hampshire",
-      style: "height: 70px; width: auto;", 
-      onerror: (e) => e.target.replaceWith(h("span", { class: "text-xl bold", text: "UNH Housing Portal" })),
+    const skipBtn = h("button", {
+      type: "button",
+      class: "skip-link",
+      text: "Skip to page content",
+      onclick: skipToContent,
     });
+
     host.className = "site-shell";
     host.append(
-      h("div", { class: "brand-row" }, logo),
+      skipBtn,
       h("nav", { class: "site-nav", "aria-label": "Main" },
         h("div", { class: "nav-group" }, NAV_LEFT.map(link)),
         h("div", { class: "nav-group" }, NAV_RIGHT.map(link))));
   }
-
+  
   document.addEventListener("DOMContentLoaded", renderHeader);
   if (!document.querySelector('link[data-portal-icons]')) {
     document.head.append(h("link", { rel: "stylesheet", href: "https://fonts.googleapis.com/icon?family=Material+Icons", "data-portal-icons": "" }));
