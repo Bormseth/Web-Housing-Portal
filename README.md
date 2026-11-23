@@ -15,12 +15,6 @@ Requires Python 3.10 or newer. Run these commands from the folder containing `ho
    python -m http.server 8085
    # then visit http://localhost:8085/
    ```
-## Written communication
-- **My Profile:** save a preferred contact method and optional communication instructions. A phone number is only required when choosing phone calls.
-- **Maintenance:** submit nonurgent demo requests using the saved preferences, with per-request changes and a link to written follow-up.
-- **Messages:** save housing questions and follow-up messages, with conversation history.
-
-These features use the existing browser session and SQLite database, so records survive page reloads and API restarts. This is a local prototype: no messages, requests, emails, or calls are sent to UNH staff. Existing urgent-contact guidance is unchanged.
 
 To run the communication checks: install `requirements-dev.txt`, then run `python -m unittest discover -s tests -v`.
 
