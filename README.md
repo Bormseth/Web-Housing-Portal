@@ -3,12 +3,27 @@
 Plain HTML/CSS/JS port of the NiceGUI app.
 
 ## Run it
-1. Start the FastAPI backend.
-2. Serve this folder and open it:
+Requires Python 3.10 or newer. Run these commands from the folder containing `housing_api.py`.
+
+1. Install dependencies and start the FastAPI backend:
+   ```
+   python -m pip install -r requirements.txt
+   python housing_api.py
+   ```
+2. In a second terminal, serve this folder and open it:
    ```
    python -m http.server 8085
    # then visit http://localhost:8085/
    ```
+## Written communication
+- **My Profile:** save a preferred contact method and optional communication instructions. A phone number is only required when choosing phone calls.
+- **Maintenance:** submit nonurgent demo requests using the saved preferences, with per-request changes and a link to written follow-up.
+- **Messages:** save housing questions and follow-up messages, with conversation history.
+
+These features use the existing browser session and SQLite database, so records survive page reloads and API restarts. This is a local prototype: no messages, requests, emails, or calls are sent to UNH staff. Existing urgent-contact guidance is unchanged.
+
+To run the communication checks: install `requirements-dev.txt`, then run `python -m unittest discover -s tests -v`.
+
 ## Notes
 - Every page builds its DOM from JS with the `Portal.h()` helper (text goes in via `textContent`, so user input can't inject markup). To redesign a page, edit its `js/pages/*.js` render code, or move markup into the `.html` file.
 - Not ported because nothing used them: `announcement_card.py`, `my_housing.py` (`render_no_housing_message`), and `render_housing_card` / `render_current_housing_card` in `housing_card.py`.

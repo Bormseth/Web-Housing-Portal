@@ -21,6 +21,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Header, HTTPException
@@ -57,13 +58,27 @@ ANNOUNCEMENTS = [
 ]
 
 
-class MaintenanceRequestCreate(BaseModel):
-    type: str
-    item: str
-    room: str
-    room_type: str
-    status: str = "Pending"
-    description: str
+class CommunicationPreferences(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    contact_method: Literal["Portal messages", "Email", "Phone call"] = "Portal messages"
+    email: str = Field(default="", max_length=200)
+    phone: str = Field(default="", max_length=40)
+    communication_notes: str = Field(default="", max_length=1000)
+
+
+class Profile(CommunicationPreferences):
+    full_name: str = Field(default="", max_length=120)
+
+
+class MaintenanceRequestCreate(CommunicationPreferences):
+    type: Literal["Public", "Private"]
+    category: Literal["Furniture", "Plumbing", "Electrical", "HVAC"] = "Furniture"
+    item: str = Field(min_length=1, max_length=100)
+    room: str = Field(min_length=1, max_length=120)
+    room_type: str = Field(min_length=1, max_length=80)
+    description: str = Field(min_length=1, max_length=2000)
+    comments: str = Field(default="", max_length=2000)
 
 MAINTENANCE_REQUESTS = [
     {
@@ -168,26 +183,24 @@ def cancel_housing():
     return {"cancelled": True}
 
 @app.get("/maintenance-requests")
-def list_requests():
-    return MAINTENANCE_REQUESTS
+def list_requests(x_ra_session: str = Header()):
+    key = session_key(x_ra_session)
+    with database() as db:
+        rows = db.execute("SELECT id, data FROM maintenance_requests WHERE session=? ORDER BY id DESC", (key,)).fetchall()
+    return [{**json.loads(row["data"]), "id": row["id"] + 3} for row in rows] + MAINTENANCE_REQUESTS
 
 @app.post("/add-maintenance-request")
-def add_request(req: MaintenanceRequestCreate):
-    global MAINTENANCE_REQUESTS
-    new_id = (MAINTENANCE_REQUESTS[-1]["id"] + 1) if MAINTENANCE_REQUESTS else 1
-    
-    new_request = {
-        "id": new_id,
-        "type": req.type,
-        "item": req.item,
-        "room": req.room,
-        "room_type": req.room_type,
-        "status": req.status,
-        "description": req.description,
-    }
-    
-    MAINTENANCE_REQUESTS.append(new_request)
-    return {"success": True}
+def add_request(req: MaintenanceRequestCreate, x_ra_session: str = Header()):
+    key = session_key(x_ra_session)
+    validate_contact(req)
+    data = {**req.model_dump(), "status": "Pending"}
+    with database() as db:
+        cursor = db.execute("INSERT INTO maintenance_requests (session, data) VALUES (?, ?)", (key, json.dumps(data)))
+        request_id = cursor.lastrowid + 3
+        thread = create_thread(db, key, "Maintenance", f"Maintenance request #{request_id}: {req.item}", req.description, req)
+        data["message_id"] = thread["id"]
+        db.execute("UPDATE maintenance_requests SET data=? WHERE id=?", (json.dumps(data), cursor.lastrowid))
+    return {"success": True, "request": {**data, "id": request_id}}
 
 # ---------------------------------------------------------------------
 # RA application: sample content, validation, and persistent drafts
@@ -265,7 +278,7 @@ def session_key(x_ra_session: str) -> str:
     try:
         return str(UUID(x_ra_session))
     except ValueError:
-        raise HTTPException(400, "This demo session is invalid. Reload the RA page.") from None
+        raise HTTPException(400, "This demo session is invalid. Reload the portal page.") from None
 
 
 @contextmanager
@@ -290,6 +303,15 @@ def database():
             session TEXT NOT NULL, year TEXT NOT NULL, data TEXT NOT NULL,
             confirmation TEXT NOT NULL, submitted_at TEXT NOT NULL,
             PRIMARY KEY (session, year)
+        )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS portal_profiles (
+            session TEXT PRIMARY KEY, data TEXT NOT NULL
+        )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS maintenance_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, session TEXT NOT NULL, data TEXT NOT NULL
+        )""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS portal_messages (
+            id TEXT PRIMARY KEY, session TEXT NOT NULL, data TEXT NOT NULL
         )""")
         with connection:
             yield connection
@@ -597,6 +619,96 @@ def cancel_housing_application(year: str, x_ra_session: str = Header()):
         deleted = db.execute(
             "DELETE FROM housing_applications WHERE session=? AND year=?", (key, year)).rowcount
     return {"cancelled": bool(deleted)}
+
+
+# ---------------------------------------------------------------------
+# Written communication: profile preferences and demo conversations
+# ---------------------------------------------------------------------
+
+def validate_contact(preferences: CommunicationPreferences):
+    errors = {}
+    if preferences.contact_method == "Email" and preferences.email and not EMAIL_PATTERN.fullmatch(preferences.email):
+        errors["email"] = "Enter a valid email address."
+    if preferences.contact_method == "Email" and not preferences.email:
+        errors["email"] = "Enter an email address or choose Portal messages."
+    if preferences.contact_method == "Phone call" and not preferences.phone:
+        errors["phone"] = "Enter a phone number or choose a written contact method."
+    if errors:
+        raise HTTPException(422, {"message": "Check your contact details.", "errors": errors})
+
+
+def load_profile(db, key):
+    row = db.execute("SELECT data FROM portal_profiles WHERE session=?", (key,)).fetchone()
+    return json.loads(row["data"]) if row else Profile().model_dump()
+
+
+@app.get("/profile")
+def get_profile(x_ra_session: str = Header()):
+    with database() as db:
+        return load_profile(db, session_key(x_ra_session))
+
+
+@app.put("/profile")
+def save_profile(profile: Profile, x_ra_session: str = Header()):
+    key = session_key(x_ra_session)
+    validate_contact(profile)
+    with database() as db:
+        db.execute("INSERT INTO portal_profiles VALUES (?, ?) ON CONFLICT(session) DO UPDATE SET data=excluded.data",
+                   (key, profile.model_dump_json()))
+    return profile.model_dump()
+
+
+class MessageCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    topic: Literal["Housing", "Maintenance", "Meal plans", "RA applications"] = "Housing"
+    subject: str = Field(min_length=1, max_length=160)
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class MessageReply(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    body: str = Field(min_length=1, max_length=4000)
+
+
+def create_thread(db, key, topic, subject, body, preferences):
+    now = datetime.now(timezone.utc).isoformat()
+    thread = {"id": str(uuid4()), "topic": topic, "subject": subject,
+              "contact": {field: getattr(preferences, field) for field in CommunicationPreferences.model_fields},
+              "created_at": now, "messages": [{"body": body, "created_at": now}]}
+    db.execute("INSERT INTO portal_messages VALUES (?, ?, ?)", (thread["id"], key, json.dumps(thread)))
+    return thread
+
+
+@app.get("/messages")
+def get_messages(x_ra_session: str = Header()):
+    key = session_key(x_ra_session)
+    with database() as db:
+        rows = db.execute("SELECT data FROM portal_messages WHERE session=? ORDER BY rowid DESC", (key,)).fetchall()
+    return [json.loads(row["data"]) for row in rows]
+
+
+@app.post("/messages")
+def new_message(message: MessageCreate, x_ra_session: str = Header()):
+    key = session_key(x_ra_session)
+    with database() as db:
+        preferences = Profile(**load_profile(db, key))
+        return create_thread(db, key, message.topic, message.subject, message.body, preferences)
+
+
+@app.post("/messages/{thread_id}/reply")
+def reply_message(thread_id: str, reply: MessageReply, x_ra_session: str = Header()):
+    key = session_key(x_ra_session)
+    with database() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT data FROM portal_messages WHERE id=? AND session=?", (thread_id, key)).fetchone()
+        if row is None:
+            raise HTTPException(404, "Conversation not found.")
+        thread = json.loads(row["data"])
+        thread["messages"].append({"body": reply.body, "created_at": datetime.now(timezone.utc).isoformat()})
+        db.execute("UPDATE portal_messages SET data=? WHERE id=? AND session=?", (json.dumps(thread), thread_id, key))
+    return thread
 
 
 if __name__ == "__main__":
